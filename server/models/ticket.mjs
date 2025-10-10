@@ -1,0 +1,29 @@
+import { DataTypes, Model } from "sequelize";
+
+export class Ticket extends Model {
+  static associate(models) {
+    Ticket.belongsTo(models.Queue, {
+      foreignKey: "queueId",
+      as: "queue",
+    });
+  }
+}
+
+export function initTicket(sequelize) {
+  Ticket.init(
+    {
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+      number: { type: DataTypes.INTEGER, allowNull: false },
+      status: {
+        type: DataTypes.ENUM("ON_GOING", "WAITING", "SERVED"),
+        allowNull: true,
+      },
+    },
+    {
+      sequelize,
+      modelName: "Ticket",
+      tableName: "tickets",
+      timestamps: false,
+    }
+  );
+}

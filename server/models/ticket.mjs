@@ -17,7 +17,9 @@ export function initTicket(sequelize) {
       status: {
         type: DataTypes.ENUM("ON_GOING", "WAITING", "SERVED"),
         allowNull: true,
+        defaultValue: "WAITING",
       },
+      queueId: { type: DataTypes.INTEGER, allowNull: false },
     },
     {
       sequelize,

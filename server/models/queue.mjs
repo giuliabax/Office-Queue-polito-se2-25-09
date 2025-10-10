@@ -17,7 +17,12 @@ export function initQueue(sequelize) {
   Queue.init(
     {
       id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-      lastIssuedTicketNumber: { type: DataTypes.INTEGER, allowNull: true },
+      lastIssuedTicketNumber: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 0,
+      },
+      serviceTypeId: { type: DataTypes.INTEGER, allowNull: false },
     },
     {
       sequelize,

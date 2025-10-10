@@ -15,6 +15,7 @@ export function initOfficer(sequelize) {
       id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
       name: { type: DataTypes.TEXT, allowNull: false },
       surname: { type: DataTypes.TEXT, allowNull: false },
+      counterId: { type: DataTypes.INTEGER, allowNull: false },
     },
     {
       sequelize,

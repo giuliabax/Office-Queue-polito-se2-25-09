@@ -10,3 +10,7 @@ export async function createServiceType(name, acronym) {
 export async function getAllServiceTypes() {
   return await ServiceType.findAll();
 }
+
+export async function getServiceTypeById(id) {
+  return await ServiceType.findByPk(id);
+}

@@ -22,3 +22,7 @@ export async function getLastIssuedTicketNumberByServiceTypeId(serviceTypeId) {
   const queue = await Queue.findOne({ where: { serviceTypeId } });
   return queue.lastIssuedTicketNumber;
 }
+
+export async function getQueueByServiceTypeId(serviceTypeId) {
+  return await Queue.findOne({ where: { serviceTypeId } });
+}

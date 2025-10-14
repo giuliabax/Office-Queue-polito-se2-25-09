@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { sequelize } from "./models/index.mjs";
+import { handleNextCustomer } from "./controllers/queueController.mjs";
 
 const app = express();
 
@@ -15,6 +16,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 const port = 3001;
+
+// Routes
+app.post("/counters/:counterId/next", handleNextCustomer);
 
 try {
   await sequelize.sync({ force: true });

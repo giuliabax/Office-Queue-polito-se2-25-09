@@ -13,7 +13,7 @@ export async function getServiceTypesByCounterId(counterId) {
      JOIN "service-type-counters" stc ON st.id = stc.serviceTypeId
      WHERE stc.counterId = :counterId`,
     {
-      replacements: [counterId],
+      replacements: { counterId },
       type: sequelize.QueryTypes.SELECT,
     }
   );

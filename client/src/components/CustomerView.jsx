@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Container, Row, Col, Form, Button, Modal, Table, Alert } from 'react-bootstrap';
 
+const API_URL = 'http://localhost:3001';
+
 function CustomerView() {
   const [services, setServices] = useState([]);
   const [selectedService, setSelectedService] = useState('');
@@ -8,8 +10,10 @@ function CustomerView() {
   const [showModal, setShowModal] = useState(false);
   const [lastTicket, setLastTicket] = useState(null);
   const [queueData, setQueueData] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Carica i servizi disponibili
+  // Carica i servizi disponibili dal DB
   useEffect(() => {
     loadServices();
   }, []);
@@ -20,58 +24,73 @@ function CustomerView() {
       loadQueue();
       const intervalId = setInterval(() => {
         loadQueue();
-        checkMyTicketsStatus(); // Controlla lo stato dei miei biglietti
+        checkMyTicketsStatus();
       }, 2000);
       return () => clearInterval(intervalId);
     }
   }, [myTickets.length]);
 
   const loadServices = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      // TODO: Chiamata API reale
-      const response = await fetch('/api/service-types');
+      const response = await fetch(`${API_URL}/api/service-types`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch service types');
+      }
+      
       const data = await response.json();
+      console.log('Servizi caricati dal DB:', data);
       setServices(data);
+      
     } catch (error) {
       console.error('Errore nel caricamento dei servizi:', error);
-      // Fallback mock
+      setError('Impossibile caricare i servizi. Riprova.');
+      
+      // Fallback mock solo in caso di errore
       setServices([
-        { id: 1, name: 'Service A', serviceTag: 'A' },
-        { id: 2, name: 'Service B', serviceTag: 'B' },
-        { id: 3, name: 'Service C', serviceTag: 'C' },
-        { id: 4, name: 'Service D', serviceTag: 'D' }
+        { id: 1, name: 'Service A', acronym: 'A' },
+        { id: 2, name: 'Service B', acronym: 'B' },
+        { id: 3, name: 'Service C', acronym: 'C' },
+        { id: 4, name: 'Service D', acronym: 'D' }
       ]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const loadQueue = async () => {
     try {
-      // TODO: Chiamata API reale per ottenere i prossimi 10 in coda
-      const response = await fetch('/api/queue/next/10');
-      const data = await response.json();
-      setQueueData(data);
+      // TODO: Implementare quando l'endpoint sarà disponibile
+      const response = await fetch(`${API_URL}/api/queue/next/10`);
+      if (response.ok) {
+        const data = await response.json();
+        setQueueData(data);
+      }
     } catch (error) {
       console.error('Errore nel caricamento della coda:', error);
+      // Per ora usa dati mock
+      setQueueData([]);
     }
   };
 
   const checkMyTicketsStatus = async () => {
     try {
-      // Controlla lo stato di tutti i miei biglietti
       for (const ticket of myTickets) {
-        const response = await fetch(`/api/tickets/${ticket.id}`);
-        const updatedTicket = await response.json();
-        
-        // Se il biglietto è stato appena chiamato, mostra notifica
-        if (ticket.status !== 'called' && updatedTicket.status === 'called') {
-          showNotification(updatedTicket.ticketNumber, updatedTicket.counterNumber);
-          playNotificationSound();
+        const response = await fetch(`${API_URL}/api/tickets/${ticket.id}`);
+        if (response.ok) {
+          const updatedTicket = await response.json();
+          
+          if (ticket.status !== 'called' && updatedTicket.status === 'called') {
+            showNotification(updatedTicket.ticketNumber, updatedTicket.counterNumber);
+            playNotificationSound();
+          }
+          
+          setMyTickets(prev => 
+            prev.map(t => t.id === ticket.id ? updatedTicket : t)
+          );
         }
-        
-        // Aggiorna lo stato locale
-        setMyTickets(prev => 
-          prev.map(t => t.id === ticket.id ? updatedTicket : t)
-        );
       }
     } catch (error) {
       console.error('Errore nel controllo dello stato dei biglietti:', error);
@@ -79,33 +98,36 @@ function CustomerView() {
   };
 
   const handleGetTicket = async () => {
+    if (!selectedService) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      const response = await fetch('/api/tickets', {
+      const response = await fetch(`${API_URL}/api/tickets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ serviceTypeId: parseInt(selectedService) })
       });
       
-      if (!response.ok) throw new Error('Errore nella creazione del biglietto');
+      if (!response.ok) {
+        throw new Error('Errore nella creazione del biglietto');
+      }
       
       const newTicket = await response.json();
-      // Risposta attesa: { id, ticketNumber: "A5", serviceTypeId, status: "waiting", ... }
       
       setLastTicket(newTicket.ticketNumber);
       setShowModal(true);
-      
-      // Aggiungi alla lista dei miei biglietti
       setMyTickets(prev => [...prev, newTicket]);
-      
-      // Reset selezione
       setSelectedService('');
       
-      // Ricarica la coda
       loadQueue();
       
     } catch (error) {
       console.error('Errore nel recupero del biglietto:', error);
-      alert('Errore nella generazione del biglietto. Riprova.');
+      setError('Errore nella generazione del biglietto. Riprova.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -137,7 +159,6 @@ function CustomerView() {
     }
   }, []);
 
-  // Prepara array di 10 elementi per la tabella
   const displayQueue = [...queueData.slice(0, 10)];
   while (displayQueue.length < 10) {
     displayQueue.push({ 
@@ -156,8 +177,17 @@ function CustomerView() {
         </Col>
       </Row>
       
+      {error && (
+        <Row className="mb-3">
+          <Col>
+            <Alert variant="danger" onClose={() => setError(null)} dismissible>
+              {error}
+            </Alert>
+          </Col>
+        </Row>
+      )}
+      
       {myTickets.length === 0 ? (
-        // Vista centrata iniziale
         <Row className="flex-grow-1 align-items-center justify-content-center">
           <Col md={6} lg={5}>
             <Form.Group className="mb-4">
@@ -167,11 +197,14 @@ function CustomerView() {
                 onChange={(e) => setSelectedService(e.target.value)}
                 size="lg"
                 className="py-3"
+                disabled={isLoading || services.length === 0}
               >
-                <option value="">-- Select a service --</option>
+                <option value="">
+                  {isLoading ? 'Loading services...' : '-- Select a service --'}
+                </option>
                 {services.map((service) => (
                   <option key={service.id} value={service.id}>
-                    {service.name}
+                    {service.name} ({service.acronym})
                   </option>
                 ))}
               </Form.Select>
@@ -182,17 +215,23 @@ function CustomerView() {
                 variant="primary"
                 size="lg"
                 onClick={handleGetTicket}
-                disabled={!selectedService}
+                disabled={!selectedService || isLoading}
                 className="py-3"
                 style={{ fontSize: '1.5rem' }}
               >
-                Get Ticket
+                {isLoading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" />
+                    Processing...
+                  </>
+                ) : (
+                  'Get Ticket'
+                )}
               </Button>
             </div>
           </Col>
         </Row>
       ) : (
-        // Vista a 2 colonne dopo aver preso almeno un biglietto
         <Row className="flex-grow-1">
           <Col lg={6} className="d-flex flex-column justify-content-center">
             <div className="p-4">
@@ -203,11 +242,12 @@ function CustomerView() {
                   onChange={(e) => setSelectedService(e.target.value)}
                   size="lg"
                   className="py-3"
+                  disabled={isLoading}
                 >
                   <option value="">-- Select a service --</option>
                   {services.map((service) => (
                     <option key={service.id} value={service.id}>
-                      {service.name}
+                      {service.name} ({service.acronym})
                     </option>
                   ))}
                 </Form.Select>
@@ -218,15 +258,21 @@ function CustomerView() {
                   variant="primary"
                   size="lg"
                   onClick={handleGetTicket}
-                  disabled={!selectedService}
+                  disabled={!selectedService || isLoading}
                   className="py-3"
                   style={{ fontSize: '1.5rem' }}
                 >
-                  Get Ticket
+                  {isLoading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" />
+                      Processing...
+                    </>
+                  ) : (
+                    'Get Ticket'
+                  )}
                 </Button>
               </div>
 
-              {/* Lista dei miei biglietti */}
               <div className="mb-4">
                 <h4 className="mb-3">Your Tickets:</h4>
                 {myTickets.map((ticket) => (

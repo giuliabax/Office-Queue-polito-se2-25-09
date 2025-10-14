@@ -1,20 +1,31 @@
 import { useState, useEffect } from 'react';
 import { Container, Row, Col, Button, Alert, Card, Form, Modal } from 'react-bootstrap';
 
+const API_URL = 'http://localhost:3001';
+
 function OfficerView() {
   const [officer, setOfficer] = useState(null);
   const [selectedCounter, setSelectedCounter] = useState('');
   const [availableCounters, setAvailableCounters] = useState([]);
+  const [counterServices, setCounterServices] = useState([]);
   const [currentCustomer, setCurrentCustomer] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showChangeCounterModal, setShowChangeCounterModal] = useState(false);
   const [hasCalledCustomer, setHasCalledCustomer] = useState(false);
   const [tempNewCounter, setTempNewCounter] = useState('');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadOfficerInfo();
     loadAvailableCounters();
   }, []);
+
+  // Quando viene selezionato un counter, carica i suoi servizi
+  useEffect(() => {
+    if (selectedCounter) {
+      loadCounterServices(selectedCounter);
+    }
+  }, [selectedCounter]);
 
   // Polling per aggiornare lo stato del cliente corrente
   useEffect(() => {
@@ -29,9 +40,6 @@ function OfficerView() {
   const loadOfficerInfo = async () => {
     try {
       // TODO: Implementare autenticazione
-      // const response = await fetch('/api/officer/me');
-      // const data = await response.json();
-      
       const mockOfficer = {
         id: 1,
         name: 'Mario',
@@ -44,20 +52,48 @@ function OfficerView() {
   };
 
   const loadAvailableCounters = async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/counters');
+      const response = await fetch(`${API_URL}/api/counters`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch counters');
+      }
+      
       const data = await response.json();
+      console.log('Counter caricati dal DB:', data);
       setAvailableCounters(data);
+      
     } catch (error) {
       console.error('Errore nel caricamento dei counter disponibili:', error);
+      setError('Impossibile caricare i counter. Riprova.');
+      
       // Fallback mock
       setAvailableCounters([
         { id: 1, counterNumber: 1 },
         { id: 2, counterNumber: 2 },
-        { id: 3, counterNumber: 3 },
-        { id: 4, counterNumber: 4 },
-        { id: 5, counterNumber: 5 }
+        { id: 3, counterNumber: 3 }
       ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadCounterServices = async (counterId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/counters/${counterId}/service-types`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch counter services');
+      }
+      
+      const data = await response.json();
+      console.log(`Servizi per counter ${counterId}:`, data);
+      setCounterServices(data);
+      
+    } catch (error) {
+      console.error('Errore nel caricamento dei servizi del counter:', error);
+      setCounterServices([]);
     }
   };
 
@@ -65,12 +101,13 @@ function OfficerView() {
     if (!currentCustomer) return;
     
     try {
-      const response = await fetch(`/api/tickets/${currentCustomer.id}`);
-      const updatedTicket = await response.json();
-      
-      // Se lo stato è cambiato, aggiorna
-      if (updatedTicket.status !== currentCustomer.status) {
-        setCurrentCustomer(updatedTicket);
+      const response = await fetch(`${API_URL}/api/tickets/${currentCustomer.id}`);
+      if (response.ok) {
+        const updatedTicket = await response.json();
+        
+        if (updatedTicket.status !== currentCustomer.status) {
+          setCurrentCustomer(updatedTicket);
+        }
       }
     } catch (error) {
       console.error('Errore nel controllo dello stato del cliente:', error);
@@ -79,7 +116,6 @@ function OfficerView() {
 
   const confirmChangeCounter = async () => {
     if (currentCustomer) {
-      // Se c'è un cliente in servizio, completalo automaticamente
       await handleCompleteCustomer();
     }
     
@@ -98,9 +134,10 @@ function OfficerView() {
     if (!currentCustomer) return;
 
     setIsLoading(true);
+    setError(null);
     
     try {
-      const response = await fetch(`/api/tickets/${currentCustomer.id}/complete`, {
+      const response = await fetch(`${API_URL}/api/tickets/${currentCustomer.id}/complete`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -116,7 +153,7 @@ function OfficerView() {
       
     } catch (error) {
       console.error('Errore nel completamento del cliente:', error);
-      alert('Errore nel completamento del cliente. Riprova.');
+      setError('Errore nel completamento del cliente. Riprova.');
     } finally {
       setIsLoading(false);
     }
@@ -126,30 +163,29 @@ function OfficerView() {
     if (!selectedCounter) return;
 
     setIsLoading(true);
+    setError(null);
     
     try {
-      const response = await fetch(`/api/counters/${selectedCounter}/call-next`, {
+      const response = await fetch(`${API_URL}/api/counters/${selectedCounter}/call-next`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
       
       if (!response.ok) {
         if (response.status === 404) {
-          alert('No customers in queue');
+          setError('No customers in queue');
           return;
         }
         throw new Error('Errore nella chiamata del prossimo cliente');
       }
       
       const nextCustomer = await response.json();
-      // Risposta attesa: { id, ticketNumber: "A5", serviceTypeId, status: "called", counterNumber: 3, ... }
-      
       setCurrentCustomer(nextCustomer);
       setHasCalledCustomer(true);
       
     } catch (error) {
       console.error('Errore nella chiamata del prossimo cliente:', error);
-      alert('Errore nella chiamata del prossimo cliente. Riprova.');
+      setError('Errore nella chiamata del prossimo cliente. Riprova.');
     } finally {
       setIsLoading(false);
     }
@@ -164,6 +200,16 @@ function OfficerView() {
           </h1>
         </Col>
       </Row>
+
+      {error && (
+        <Row className="mb-3">
+          <Col>
+            <Alert variant="danger" onClose={() => setError(null)} dismissible>
+              {error}
+            </Alert>
+          </Col>
+        </Row>
+      )}
 
       <Row className="mb-5">
         <Col md={{ span: 6, offset: 3 }}>
@@ -187,10 +233,13 @@ function OfficerView() {
               }}
               size="lg"
               className="py-3 text-center fs-4"
+              disabled={isLoading}
             >
-              <option value="">-- Select a counter --</option>
+              <option value="">
+                {isLoading ? 'Loading counters...' : '-- Select a counter --'}
+              </option>
               {availableCounters.map((counter) => (
-                <option key={counter.id} value={counter.counterNumber}>
+                <option key={counter.id} value={counter.id}>
                   Counter {counter.counterNumber}
                 </option>
               ))}
@@ -198,8 +247,15 @@ function OfficerView() {
             {selectedCounter && (
               <div className="text-center mt-3">
                 <span className="badge bg-primary py-2 px-4" style={{ fontSize: '1.2rem' }}>
-                  Counter {selectedCounter}
+                  Counter {availableCounters.find(c => c.id === parseInt(selectedCounter))?.counterNumber}
                 </span>
+                {counterServices.length > 0 && (
+                  <div className="mt-2">
+                    <small className="text-muted">
+                      Services: {counterServices.map(s => s.acronym).join(', ')}
+                    </small>
+                  </div>
+                )}
               </div>
             )}
           </Form.Group>

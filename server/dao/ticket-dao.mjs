@@ -16,3 +16,7 @@ export async function setTicketStatus(number, status, queueId) {
   await ticket.save();
   return ticket;
 }
+
+export async function getTicketById(ticketId) {
+  return await Ticket.findByPk(ticketId);
+}

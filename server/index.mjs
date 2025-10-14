@@ -4,6 +4,8 @@ import { sequelize } from "./models/index.mjs";
 import { getAllServiceTypes } from "./dao/service-type-dao.mjs";
 import { getServiceTypesByCounterId } from "./dao/service-type-counter-dao.mjs";
 import { handleNextCustomer } from "./controllers/queueController.mjs";
+import { getTicket } from "./controllers/ticketController.mjs";
+import { getTicketById } from "./dao/ticket-dao.mjs";
 
 const app = express();
 
@@ -37,6 +39,32 @@ app.get("/api/counters/:counterId/service-types", async (req, res) => {
     res.json(serviceTypes);
   } catch (err) {
     console.error("Error getting service types for counter:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* get ticket API*/
+app.post("api/tickets", async (req, res) => {
+  try {
+    await getTicket(req, res);
+  } catch (err) {
+    console.error("Error getting ticket:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("api/tickets/:id", async (req, res) => {
+  try {
+    const ticketId = req.params.id;
+    const ticket = await getTicketById(ticketId);
+
+    if (!ticket) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+
+    res.json(ticket);
+  } catch (err) {
+    console.error("Error getting ticket:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

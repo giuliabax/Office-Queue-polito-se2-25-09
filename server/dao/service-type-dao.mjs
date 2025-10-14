@@ -5,3 +5,7 @@ import { ServiceType } from "../models/service-type.mjs";
 export async function createServiceType(name, acronym) {
   return await ServiceType.create({ name, acronym });
 }
+
+export async function getServiceTypeById(id) {
+  return await ServiceType.findByPk(id);
+}

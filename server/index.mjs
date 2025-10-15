@@ -3,13 +3,11 @@ import cors from "cors";
 import { sequelize } from "./models/index.mjs";
 import { getAllServiceTypes } from "./dao/service-type-dao.mjs";
 import { getServiceTypesByCounterId } from "./dao/service-type-counter-dao.mjs";
-//import { handleNextCustomer } from "./controllers/queueController.mjs";
 import seedDatabase from "./seed.mjs";
 import { getTicket } from "./controllers/ticketController.mjs";
 import { getAllCounters } from "./dao/counter-dao.mjs";
 import { getTicketById } from "./dao/ticket-dao.mjs";
-import { handleNextCustomer, getQueueList } from './controllers/queueController.mjs';
-
+import { handleNextCustomer, getQueueList, handleCompleteCustomer } from './controllers/queueController.mjs';
 
 const app = express();
 
@@ -18,7 +16,6 @@ app.use(express.json());
 const corsOptions = {
   origin: "http://localhost:5173",
   optionsSuccessStatus: 200,
-  //credentials: true,
 };
 
 app.use(cors(corsOptions));
@@ -40,7 +37,6 @@ app.get("/api/counters", async (req, res) => {
   try {
     const counters = await getAllCounters();
     
-    // Trasforma i dati per il frontend
     const formattedCounters = counters.map(counter => ({
       id: counter.id,
       counterNumber: counter.number,
@@ -65,7 +61,6 @@ app.get("/api/counters/:counterId/service-types", async (req, res) => {
   }
 });
 
-/* get ticket API*/
 app.post("/api/tickets", async (req, res) => {
   try {
     await getTicket(req, res);
@@ -91,17 +86,40 @@ app.get("/api/tickets/:id", async (req, res) => {
   }
 });
 
-// Route per ottenere la lista della coda
-app.get('/api/queue', getQueueList);
+// ⬅️ Route per ottenere la lista della coda
+app.get('/api/queue', (req, res) => {
+  console.log('📋 GET /api/queue called');
+  getQueueList(req, res);
+});
 
-app.post("/api/counters/:counterId/next", handleNextCustomer);
+// ⬅️ FIX: Route per chiamare il prossimo cliente - AGGIUNGI LOG
+app.post("/api/queue/counters/:counterId/next", (req, res) => {
+  console.log(`📞 POST /api/queue/counters/${req.params.counterId}/next called`);
+  handleNextCustomer(req, res);
+});
+
+// ⬅️ FIX: Route per completare un ticket - AGGIUNGI LOG
+app.put('/api/queue/tickets/:ticketId/complete', (req, res) => {
+  console.log(`✅ PUT /api/queue/tickets/${req.params.ticketId}/complete called`);
+  handleCompleteCustomer(req, res);
+});
 
 try {
   await sequelize.sync({ force: true });
   await seedDatabase();
+  
   app.listen(port, () => {
-    console.log(`Server listening at http://localhost:${port}`);
+    console.log(`🚀 Server listening at http://localhost:${port}`);
+    console.log('📍 Available routes:');
+    console.log('   GET  /api/service-types');
+    console.log('   GET  /api/counters');
+    console.log('   GET  /api/counters/:counterId/service-types');
+    console.log('   POST /api/tickets');
+    console.log('   GET  /api/tickets/:id');
+    console.log('   GET  /api/queue');
+    console.log('   POST /api/queue/counters/:counterId/next'); 
+    console.log('   PUT  /api/queue/tickets/:ticketId/complete');
   });
 } catch (err) {
-  console.error("Error during database connection/server bootstrap", err);
+  console.error("❌ Error during database connection/server bootstrap", err);
 }

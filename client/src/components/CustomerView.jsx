@@ -49,7 +49,7 @@ function CustomerView() {
     }
   };
 
-  const loadQueue = async () => {
+    const loadQueue = async () => {
     try {
       const response = await fetch(`${API_URL}/api/queue`);
       if (!response.ok) {
@@ -59,23 +59,13 @@ function CustomerView() {
       const data = await response.json();
       console.log('📋 Queue data from backend:', data);
       
-      // ⬅️ FIX: Carica anche i counter per mappare counterId → counterNumber
-      const countersResponse = await fetch(`${API_URL}/api/counters`);
-      const counters = countersResponse.ok ? await countersResponse.json() : [];
-      
-      console.log('🏢 Counters:', counters);
-      
-      // Crea una mappa counterId → counterNumber
-      const counterMap = {};
-      counters.forEach(counter => {
-        counterMap[counter.id] = counter.counterNumber;
-      });
-      
-      console.log('🗺️ Counter map:', counterMap);
-      
-      // ⬅️ FIX: Mappa i dati usando la counterMap
+      // ⬅️ FIX: Usa direttamente counter.number dal backend
       const formattedQueue = data.map(ticket => {
-        const counterNumber = ticket.counterId ? counterMap[ticket.counterId] : null;
+        console.log(`🎫 Ticket ${ticket.number}:`, {
+          status: ticket.status,
+          counterId: ticket.counterId,
+          counterNumber: ticket.counter?.number
+        });
         
         return {
           id: ticket.id,
@@ -83,7 +73,7 @@ function CustomerView() {
           serviceType: ticket.queue?.serviceType?.name || 'Unknown',
           status: ticket.status,
           counterId: ticket.counterId,
-          counterNumber: counterNumber // ⬅️ Ora usa il counterNumber corretto
+          counterNumber: ticket.counter?.number || null // ⬅️ USA counter.number direttamente
         };
       });
       
@@ -97,7 +87,7 @@ function CustomerView() {
     }
   };
 
-  // ⬅️ FIX: Aggiorna automaticamente lo stato dei miei ticket
+  // ⬅️ FIX: Usa lo status dal backend per determinare se è chiamato
   const updateMyTicketsFromQueue = (queueTickets) => {
     setMyTickets(prevTickets => {
       return prevTickets.map(myTicket => {
@@ -107,23 +97,23 @@ function CustomerView() {
         
         if (queueTicket) {
           const wasWaiting = myTicket.status === 'waiting';
-          const nowCalled = queueTicket.counterId !== null;
+          const nowCalled = queueTicket.status === 'ON_GOING'; // ⬅️ FIX: Usa lo status
           
           // Notifica se il ticket viene chiamato
           if (wasWaiting && nowCalled) {
-            console.log(`🔔 Ticket ${myTicket.ticketNumber} chiamato al counter ${queueTicket.counterId}!`);
-            showNotification(myTicket.ticketNumber, queueTicket.counterId);
+            console.log(`🔔 Ticket ${myTicket.ticketNumber} chiamato al counter ${queueTicket.counterNumber}!`);
+            showNotification(myTicket.ticketNumber, queueTicket.counterNumber);
             playNotificationSound();
           }
           
           return {
             ...myTicket,
-            status: queueTicket.counterId ? 'called' : 'waiting',
+            status: nowCalled ? 'called' : 'waiting', // ⬅️ FIX: Basato sul status
             counterId: queueTicket.counterId,
             counterNumber: queueTicket.counterNumber
           };
         } else {
-          // Ticket non più in coda = servito
+          // ⬅️ Ticket non più in coda = servito (status = SERVED)
           if (myTicket.status !== 'served') {
             console.log(`✅ Ticket ${myTicket.ticketNumber} servito!`);
             

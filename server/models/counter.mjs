@@ -12,6 +12,10 @@ export class Counter extends Model {
       foreignKey: "counterId",
       as: "officer",
     });
+    Counter.hasMany(models.Ticket, {
+      foreignKey: "counterId",
+      as: "tickets",
+    });
   }
 }
 

@@ -95,25 +95,32 @@ function OfficerView() {
     setTempNewCounter('');
   };
 
-  const handleCompleteCustomer = async () => {
+    const handleCompleteCustomer = async () => {
     if (!currentCustomer) return;
 
     setIsLoading(true);
     setError(null);
     
     try {
-      // ⬅️ TODO: Implementare endpoint PUT /api/tickets/:id/complete
-      // Per ora, segniamo solo come completato lato client
-      console.log('✅ Cliente completato:', currentCustomer.ticketNumber);
+      console.log('✅ Completing customer:', currentCustomer.ticketNumber, 'ID:', currentCustomer.ticketId);
+      
+      // ⬅️ FIX: Chiama l'API per completare il ticket
+      const response = await fetch(`${API_URL}/api/queue/tickets/${currentCustomer.ticketId}/complete`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Server error' }));
+        throw new Error(errorData.message || 'Failed to complete customer');
+      }
+      
+      const data = await response.json();
+      console.log('✅ Customer completed:', data);
       
       setCurrentCustomer(null);
       setHasCalledCustomer(false);
       setError(null);
-      
-      // Mostra messaggio di successo
-      setTimeout(() => {
-        setError(null);
-      }, 3000);
       
     } catch (error) {
       console.error('❌ Errore nel completamento del cliente:', error);
@@ -123,7 +130,7 @@ function OfficerView() {
     }
   };
 
-  const handleCallNextCustomer = async () => {
+    const handleCallNextCustomer = async () => {
     if (!selectedCounter) return;
 
     setIsLoading(true);
@@ -132,7 +139,7 @@ function OfficerView() {
     try {
       console.log('📞 Calling next customer for counter:', selectedCounter);
       
-      const response = await fetch(`${API_URL}/api/counters/${selectedCounter}/next`, {
+      const response = await fetch(`${API_URL}/api/queue/counters/${selectedCounter}/next`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -156,11 +163,12 @@ function OfficerView() {
       const data = await response.json();
       console.log('✅ Full response data:', data);
       
-      // ⬅️ FIX: Estrai correttamente i dati dalla risposta
+      // ⬅️ FIX: Salva anche il ticketId per il completamento
       if (data.customerServed) {
         const selectedCounterData = availableCounters.find(c => c.id === parseInt(selectedCounter));
         
         const customerData = {
+          ticketId: data.customerServed.ticketId, // ⬅️ AGGIUNGI QUESTO
           ticketNumber: data.customerServed.ticketNumber,
           serviceType: data.customerServed.serviceType,
           counterNumber: selectedCounterData?.counterNumber || selectedCounter

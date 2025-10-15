@@ -1,6 +1,8 @@
 import { nextCustomer } from "../services/queueService.js";
-import { getWaitingTickets } from "../dao/ticket-dao.mjs";
-
+import { Ticket } from "../models/ticket.mjs";
+import { Queue } from "../models/queue.mjs";
+import { ServiceType } from "../models/service-type.mjs";
+import { Counter } from "../models/counter.mjs";
 
 export async function handleNextCustomer(req, res) {
     try {
@@ -34,17 +36,91 @@ export async function handleNextCustomer(req, res) {
     }
 }
 
+export async function handleCompleteCustomer(req, res) {
+    try {
+        const ticketId = Number(req.params.ticketId);
+        console.log(`✅ Completing ticket ${ticketId}...`);
+        
+        const ticket = await Ticket.findByPk(ticketId);
+        
+        if (!ticket) {
+            console.log('❌ Ticket not found');
+            return res.status(404).json({ message: "Ticket not found" });
+        }
+        
+        if (ticket.status !== 'ON_GOING') {
+            console.log(`⚠️ Ticket ${ticketId} is not ON_GOING (status: ${ticket.status})`);
+            return res.status(400).json({ message: "Ticket is not being served" });
+        }
+        
+        // Marca il ticket come SERVED
+        ticket.status = 'SERVED';
+        ticket.counterId = null; // Libera il counter
+        await ticket.save();
+        
+        console.log(`✅ Ticket ${ticket.number} marked as SERVED`);
+        
+        res.json({
+            message: "Customer completed successfully",
+            ticket: {
+                id: ticket.id,
+                number: ticket.number,
+                status: ticket.status
+            }
+        });
+    } catch (err) {
+        console.error('❌ Error in handleCompleteCustomer:', err);
+        console.error('Stack:', err.stack);
+        res.status(500).json({ 
+            error: "Internal server error",
+            message: err.message
+        });
+    }
+}
+
 /**
  * Ottiene la lista dei prossimi ticket in coda
  * GET /api/queue
+ * ⬅️ FIX: Include anche ticket ON_GOING e il Counter associato
  */
 export async function getQueueList(req, res) {
     try {
         console.log('📋 Getting queue list...');
         
-        const tickets = await getWaitingTickets(10);
+        // ⬅️ FIX: Include sia WAITING che ON_GOING
+        const tickets = await Ticket.findAll({
+            where: { 
+                status: ['WAITING', 'ON_GOING'] 
+            },
+            include: [
+                {
+                    model: Queue,
+                    as: 'queue',
+                    include: [
+                        {
+                            model: ServiceType,
+                            as: 'serviceType',
+                            attributes: ['id', 'name', 'acronym']
+                        }
+                    ]
+                },
+                // ⬅️ FIX: Include il Counter
+                {
+                    model: Counter,
+                    as: 'counter',
+                    attributes: ['id', 'number']
+                }
+            ],
+            order: [['id', 'ASC']],
+            limit: 10
+        });
         
         console.log('✅ Queue tickets found:', tickets.length);
+        
+        // Log per debug
+        tickets.forEach(ticket => {
+            console.log(`📊 Ticket ${ticket.number}: status=${ticket.status}, counterId=${ticket.counterId}, counterNumber=${ticket.counter?.number}`);
+        });
         
         res.json(tickets);
     } catch (err) {

@@ -79,7 +79,7 @@ export async function nextCustomer(counterId) {
         if (!nextTicket) {
             console.log(`⚠️ [nextCustomer] No waiting tickets found`);
         } else {
-            console.log(`✅ [nextCustomer] Found ticket #${nextTicket.number} for ${nextTicket.queue.serviceType.name}`);
+            console.log(`✅ [nextCustomer] Found ticket #${nextTicket.number} (ID: ${nextTicket.id}) for ${nextTicket.queue.serviceType.name}`);
             nextTicket.status = "ON_GOING";
             nextTicket.counterId = counterId;
             await nextTicket.save();
@@ -100,6 +100,7 @@ export async function nextCustomer(counterId) {
             services: counter.serviceTypes.map(s => s.name),
             customerServed: nextTicket
                 ? {
+                    ticketId: nextTicket.id, 
                     ticketNumber: nextTicket.number,
                     serviceType: nextTicket.queue.serviceType.name,
                 }

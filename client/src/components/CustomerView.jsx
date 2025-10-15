@@ -20,15 +20,12 @@ function CustomerView() {
 
   // Polling per aggiornare la coda ogni 2 secondi
   useEffect(() => {
-    if (myTickets.length > 0) {
+    loadQueue();
+    const intervalId = setInterval(() => {
       loadQueue();
-      const intervalId = setInterval(() => {
-        loadQueue();
-        checkMyTicketsStatus();
-      }, 2000);
-      return () => clearInterval(intervalId);
-    }
-  }, [myTickets.length]);
+    }, 2000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   const loadServices = async () => {
     setIsLoading(true);
@@ -41,20 +38,12 @@ function CustomerView() {
       }
       
       const data = await response.json();
-      console.log('Servizi caricati dal DB:', data);
+      console.log('✅ Servizi caricati dal DB:', data);
       setServices(data);
       
     } catch (error) {
-      console.error('Errore nel caricamento dei servizi:', error);
+      console.error('❌ Errore nel caricamento dei servizi:', error);
       setError('Impossibile caricare i servizi. Riprova.');
-      
-      // Fallback mock solo in caso di errore
-      setServices([
-        { id: 1, name: 'Service A', acronym: 'A' },
-        { id: 2, name: 'Service B', acronym: 'B' },
-        { id: 3, name: 'Service C', acronym: 'C' },
-        { id: 4, name: 'Service D', acronym: 'D' }
-      ]);
     } finally {
       setIsLoading(false);
     }
@@ -62,39 +51,96 @@ function CustomerView() {
 
   const loadQueue = async () => {
     try {
-      // TODO: Implementare quando l'endpoint sarà disponibile
-      const response = await fetch(`${API_URL}/api/queue/next/10`);
-      if (response.ok) {
-        const data = await response.json();
-        setQueueData(data);
+      const response = await fetch(`${API_URL}/api/queue`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch queue');
       }
+      
+      const data = await response.json();
+      console.log('📋 Queue data from backend:', data);
+      
+      // ⬅️ FIX: Carica anche i counter per mappare counterId → counterNumber
+      const countersResponse = await fetch(`${API_URL}/api/counters`);
+      const counters = countersResponse.ok ? await countersResponse.json() : [];
+      
+      console.log('🏢 Counters:', counters);
+      
+      // Crea una mappa counterId → counterNumber
+      const counterMap = {};
+      counters.forEach(counter => {
+        counterMap[counter.id] = counter.counterNumber;
+      });
+      
+      console.log('🗺️ Counter map:', counterMap);
+      
+      // ⬅️ FIX: Mappa i dati usando la counterMap
+      const formattedQueue = data.map(ticket => {
+        const counterNumber = ticket.counterId ? counterMap[ticket.counterId] : null;
+        
+        return {
+          id: ticket.id,
+          ticketNumber: ticket.number,
+          serviceType: ticket.queue?.serviceType?.name || 'Unknown',
+          status: ticket.status,
+          counterId: ticket.counterId,
+          counterNumber: counterNumber // ⬅️ Ora usa il counterNumber corretto
+        };
+      });
+      
+      console.log('✅ Formatted queue with counter numbers:', formattedQueue);
+      
+      setQueueData(formattedQueue);
+      updateMyTicketsFromQueue(formattedQueue);
+      
     } catch (error) {
-      console.error('Errore nel caricamento della coda:', error);
-      // Per ora usa dati mock
-      setQueueData([]);
+      console.error('❌ Errore nel caricamento della coda:', error);
     }
   };
 
-  const checkMyTicketsStatus = async () => {
-    try {
-      for (const ticket of myTickets) {
-        const response = await fetch(`${API_URL}/api/tickets/${ticket.id}`);
-        if (response.ok) {
-          const updatedTicket = await response.json();
+  // ⬅️ FIX: Aggiorna automaticamente lo stato dei miei ticket
+  const updateMyTicketsFromQueue = (queueTickets) => {
+    setMyTickets(prevTickets => {
+      return prevTickets.map(myTicket => {
+        const queueTicket = queueTickets.find(qt => 
+          qt.ticketNumber === myTicket.ticketNumber
+        );
+        
+        if (queueTicket) {
+          const wasWaiting = myTicket.status === 'waiting';
+          const nowCalled = queueTicket.counterId !== null;
           
-          if (ticket.status !== 'called' && updatedTicket.status === 'called') {
-            showNotification(updatedTicket.ticketNumber, updatedTicket.counterNumber);
+          // Notifica se il ticket viene chiamato
+          if (wasWaiting && nowCalled) {
+            console.log(`🔔 Ticket ${myTicket.ticketNumber} chiamato al counter ${queueTicket.counterId}!`);
+            showNotification(myTicket.ticketNumber, queueTicket.counterId);
             playNotificationSound();
           }
           
-          setMyTickets(prev => 
-            prev.map(t => t.id === ticket.id ? updatedTicket : t)
-          );
+          return {
+            ...myTicket,
+            status: queueTicket.counterId ? 'called' : 'waiting',
+            counterId: queueTicket.counterId,
+            counterNumber: queueTicket.counterNumber
+          };
+        } else {
+          // Ticket non più in coda = servito
+          if (myTicket.status !== 'served') {
+            console.log(`✅ Ticket ${myTicket.ticketNumber} servito!`);
+            
+            // Rimuovi il ticket dopo 30 secondi
+            setTimeout(() => {
+              setMyTickets(prev => prev.filter(t => t.ticketNumber !== myTicket.ticketNumber));
+            }, 30000);
+            
+            return {
+              ...myTicket,
+              status: 'served'
+            };
+          }
+          return myTicket;
         }
-      }
-    } catch (error) {
-      console.error('Errore nel controllo dello stato dei biglietti:', error);
-    }
+      });
+    });
   };
 
   const handleGetTicket = async () => {
@@ -114,17 +160,33 @@ function CustomerView() {
         throw new Error('Errore nella creazione del biglietto');
       }
       
-      const newTicket = await response.json();
+      const data = await response.json();
+      console.log('🎫 Ticket creato:', data);
       
-      setLastTicket(newTicket.ticketNumber);
+      // ⬅️ FIX: Crea il ticket con la struttura corretta
+      const newTicket = {
+        id: data.id,
+        ticketNumber: data.ticketNumber,
+        serviceType: services.find(s => s.id === parseInt(selectedService))?.name || 'Unknown',
+        status: 'waiting',
+        counterId: null,
+        counterNumber: null
+      };
+      
+      setLastTicket(data.ticketNumber);
       setShowModal(true);
       setMyTickets(prev => [...prev, newTicket]);
       setSelectedService('');
       
-      loadQueue();
+      // Richiedi permesso notifiche
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+      
+      await loadQueue();
       
     } catch (error) {
-      console.error('Errore nel recupero del biglietto:', error);
+      console.error('❌ Errore nel recupero del biglietto:', error);
       setError('Errore nella generazione del biglietto. Riprova.');
     } finally {
       setIsLoading(false);
@@ -139,7 +201,8 @@ function CustomerView() {
     if (Notification.permission === "granted") {
       new Notification("Your turn!", {
         body: `Ticket ${ticketNum} - Please go to Counter ${counterNum}`,
-        icon: '/notification-icon.png'
+        icon: '/notification-icon.png',
+        tag: `ticket-${ticketNum}`
       });
     }
   };
@@ -153,12 +216,7 @@ function CustomerView() {
     }
   };
 
-  useEffect(() => {
-    if (Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
+  // ⬅️ FIX: Prepara la queue per la visualizzazione (sempre 10 righe)
   const displayQueue = [...queueData.slice(0, 10)];
   while (displayQueue.length < 10) {
     displayQueue.push({ 
@@ -288,6 +346,7 @@ function CustomerView() {
                     <div className="d-flex justify-content-between align-items-center">
                       <div>
                         <strong className="fs-4">{ticket.ticketNumber}</strong>
+                        <div className="text-muted small">{ticket.serviceType}</div>
                       </div>
                       <div className="text-end">
                         {ticket.status === 'waiting' && (
@@ -323,7 +382,7 @@ function CustomerView() {
                 <tbody>
                   {displayQueue.map((ticket, index) => {
                     const isMyTicket = myTickets.some(t => t.ticketNumber === ticket.ticketNumber);
-                    const isCalled = ticket.status === 'called';
+                    const isCalled = ticket.counterId !== null;
                     
                     return (
                       <tr 

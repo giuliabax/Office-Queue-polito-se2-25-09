@@ -14,6 +14,11 @@ export async function getTicket(req, res) {
       return res.status(404).json({ error: "Service type not found or queue missing" });
     }
 
+    const serviceType = await serviceTypeDAO.getServiceTypeById(request.serviceTypeId);
+    if (!serviceType) {
+      return res.status(404).json({ error: "Service type not found" });
+    }
+
     const queueInfo = new QueueInfo(
       queue.id,
       queue.serviceTypeId,
@@ -22,12 +27,12 @@ export async function getTicket(req, res) {
 
     const nextTicketNumber = queueInfo.getNextTicketNumber();
 
-    const ticket = await ticketDAO.createTicket(nextTicketNumber, queue.id);
+    const ticket = await ticketDAO.createTicket(nextTicketNumber, queue.id, serviceType.acronym);
 
     queue.lastIssuedTicketNumber = nextTicketNumber;
     await queue.save();
 
-    const serviceType = await serviceTypeDAO.getServiceTypeById(request.serviceTypeId);
+    //const serviceType = await serviceTypeDAO.getServiceTypeById(request.serviceTypeId);
 
     const estimatedWaitTime = 10; // placeholder for estimated wait time calculation
 

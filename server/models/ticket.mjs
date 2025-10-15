@@ -20,6 +20,7 @@ export function initTicket(sequelize) {
         defaultValue: "WAITING",
       },
       queueId: { type: DataTypes.INTEGER, allowNull: false },
+      counterId: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null },
     },
     {
       sequelize,

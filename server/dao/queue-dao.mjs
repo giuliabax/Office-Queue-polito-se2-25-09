@@ -37,7 +37,7 @@ export async function getQueuesByServiceTypes(serviceTypeIds) {
       {
         model: Ticket,
         as: "tickets",
-        where: { status: "waiting" },
+        where: { status: "WAITING" },
         required: false,
       },
       { model: ServiceType, as: "serviceType" },

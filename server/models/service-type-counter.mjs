@@ -18,7 +18,7 @@ export function initServiceTypeCounter(sequelize) {
       sequelize,
       modelName: "ServiceTypeCounter",
       tableName: "service_type_counter",
-      timestamps: false,
+      timestamps: true,
     }
   );
 }

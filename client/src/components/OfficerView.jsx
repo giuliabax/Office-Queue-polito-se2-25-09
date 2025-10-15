@@ -20,26 +20,14 @@ function OfficerView() {
     loadAvailableCounters();
   }, []);
 
-  // Quando viene selezionato un counter, carica i suoi servizi
   useEffect(() => {
     if (selectedCounter) {
       loadCounterServices(selectedCounter);
     }
   }, [selectedCounter]);
 
-  // Polling per aggiornare lo stato del cliente corrente
-  useEffect(() => {
-    if (selectedCounter && currentCustomer) {
-      const intervalId = setInterval(() => {
-        checkCurrentCustomerStatus();
-      }, 2000);
-      return () => clearInterval(intervalId);
-    }
-  }, [selectedCounter, currentCustomer]);
-
   const loadOfficerInfo = async () => {
     try {
-      // TODO: Implementare autenticazione
       const mockOfficer = {
         id: 1,
         name: 'Mario',
@@ -61,19 +49,12 @@ function OfficerView() {
       }
       
       const data = await response.json();
-      console.log('Counter caricati dal DB:', data);
+      console.log('✅ Counter caricati:', data);
       setAvailableCounters(data);
       
     } catch (error) {
-      console.error('Errore nel caricamento dei counter disponibili:', error);
+      console.error('❌ Errore nel caricamento dei counter:', error);
       setError('Impossibile caricare i counter. Riprova.');
-      
-      // Fallback mock
-      setAvailableCounters([
-        { id: 1, counterNumber: 1 },
-        { id: 2, counterNumber: 2 },
-        { id: 3, counterNumber: 3 }
-      ]);
     } finally {
       setIsLoading(false);
     }
@@ -88,29 +69,12 @@ function OfficerView() {
       }
       
       const data = await response.json();
-      console.log(`Servizi per counter ${counterId}:`, data);
+      console.log(`✅ Servizi per counter ${counterId}:`, data);
       setCounterServices(data);
       
     } catch (error) {
-      console.error('Errore nel caricamento dei servizi del counter:', error);
+      console.error('❌ Errore nel caricamento dei servizi del counter:', error);
       setCounterServices([]);
-    }
-  };
-
-  const checkCurrentCustomerStatus = async () => {
-    if (!currentCustomer) return;
-    
-    try {
-      const response = await fetch(`${API_URL}/api/tickets/${currentCustomer.id}`);
-      if (response.ok) {
-        const updatedTicket = await response.json();
-        
-        if (updatedTicket.status !== currentCustomer.status) {
-          setCurrentCustomer(updatedTicket);
-        }
-      }
-    } catch (error) {
-      console.error('Errore nel controllo dello stato del cliente:', error);
     }
   };
 
@@ -121,6 +85,7 @@ function OfficerView() {
     
     setSelectedCounter(tempNewCounter);
     setHasCalledCustomer(false);
+    setCurrentCustomer(null);
     setShowChangeCounterModal(false);
     setTempNewCounter('');
   };
@@ -137,22 +102,21 @@ function OfficerView() {
     setError(null);
     
     try {
-      const response = await fetch(`${API_URL}/api/tickets/${currentCustomer.id}/complete`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          counterId: parseInt(selectedCounter),
-          status: 'served'
-        })
-      });
-      
-      if (!response.ok) throw new Error('Errore nel completamento del cliente');
+      // ⬅️ TODO: Implementare endpoint PUT /api/tickets/:id/complete
+      // Per ora, segniamo solo come completato lato client
+      console.log('✅ Cliente completato:', currentCustomer.ticketNumber);
       
       setCurrentCustomer(null);
       setHasCalledCustomer(false);
+      setError(null);
+      
+      // Mostra messaggio di successo
+      setTimeout(() => {
+        setError(null);
+      }, 3000);
       
     } catch (error) {
-      console.error('Errore nel completamento del cliente:', error);
+      console.error('❌ Errore nel completamento del cliente:', error);
       setError('Errore nel completamento del cliente. Riprova.');
     } finally {
       setIsLoading(false);
@@ -166,26 +130,57 @@ function OfficerView() {
     setError(null);
     
     try {
-      const response = await fetch(`${API_URL}/api/counters/${selectedCounter}/call-next`, {
+      console.log('📞 Calling next customer for counter:', selectedCounter);
+      
+      const response = await fetch(`${API_URL}/api/counters/${selectedCounter}/next`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
       
+      console.log('📡 Response status:', response.status);
+      
       if (!response.ok) {
         if (response.status === 404) {
-          setError('No customers in queue');
+          const errorData = await response.json().catch(() => ({ message: 'No customers in queue' }));
+          console.log('⚠️ No customers:', errorData.message);
+          setError(errorData.message);
+          setCurrentCustomer(null);
           return;
         }
-        throw new Error('Errore nella chiamata del prossimo cliente');
+        
+        const errorData = await response.json().catch(() => ({ message: 'Server error' }));
+        console.error('❌ Server error:', errorData);
+        throw new Error(errorData.message || 'Errore nella chiamata del prossimo cliente');
       }
       
-      const nextCustomer = await response.json();
-      setCurrentCustomer(nextCustomer);
-      setHasCalledCustomer(true);
+      const data = await response.json();
+      console.log('✅ Full response data:', data);
+      
+      // ⬅️ FIX: Estrai correttamente i dati dalla risposta
+      if (data.customerServed) {
+        const selectedCounterData = availableCounters.find(c => c.id === parseInt(selectedCounter));
+        
+        const customerData = {
+          ticketNumber: data.customerServed.ticketNumber,
+          serviceType: data.customerServed.serviceType,
+          counterNumber: selectedCounterData?.counterNumber || selectedCounter
+        };
+        
+        console.log('✅ Setting current customer:', customerData);
+        
+        setCurrentCustomer(customerData);
+        setHasCalledCustomer(true);
+        setError(null);
+      } else {
+        console.log('⚠️ No customer to serve');
+        setError('No customers in queue');
+        setCurrentCustomer(null);
+      }
       
     } catch (error) {
-      console.error('Errore nella chiamata del prossimo cliente:', error);
-      setError('Errore nella chiamata del prossimo cliente. Riprova.');
+      console.error('❌ Errore nella chiamata del prossimo cliente:', error);
+      setError(error.message || 'Errore nella chiamata del prossimo cliente. Riprova.');
+      setCurrentCustomer(null);
     } finally {
       setIsLoading(false);
     }
@@ -205,6 +200,7 @@ function OfficerView() {
         <Row className="mb-3">
           <Col>
             <Alert variant="danger" onClose={() => setError(null)} dismissible>
+              <i className="bi bi-exclamation-circle me-2"></i>
               {error}
             </Alert>
           </Col>
@@ -228,6 +224,7 @@ function OfficerView() {
                   setSelectedCounter(newCounter);
                   if (newCounter !== selectedCounter) {
                     setHasCalledCustomer(false);
+                    setCurrentCustomer(null);
                   }
                 }
               }}
@@ -244,16 +241,30 @@ function OfficerView() {
                 </option>
               ))}
             </Form.Select>
+            
             {selectedCounter && (
               <div className="text-center mt-3">
                 <span className="badge bg-primary py-2 px-4" style={{ fontSize: '1.2rem' }}>
                   Counter {availableCounters.find(c => c.id === parseInt(selectedCounter))?.counterNumber}
                 </span>
+                
+                {/* ⬅️ SEZIONE SERVICE TYPES */}
                 {counterServices.length > 0 && (
-                  <div className="mt-2">
-                    <small className="text-muted">
-                      Services: {counterServices.map(s => s.acronym).join(', ')}
-                    </small>
+                  <div className="mt-3 p-3 bg-white rounded shadow-sm">
+                    <p className="mb-2 fw-bold text-muted" style={{ fontSize: '1rem' }}>
+                      Service type(s):
+                    </p>
+                    <div className="d-flex justify-content-center gap-2 flex-wrap">
+                      {counterServices.map((service) => (
+                        <span 
+                          key={service.id}
+                          className="badge bg-info text-dark py-2 px-3"
+                          style={{ fontSize: '1rem' }}
+                        >
+                          {service.name} ({service.acronym})
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -264,35 +275,53 @@ function OfficerView() {
 
       <Row className="flex-grow-1 d-flex align-items-center">
         <Col>
+          {/* ⬅️ MOSTRA IL CURRENT CUSTOMER */}
           {currentCustomer ? (
-            <Card className="mb-4 shadow-lg border-0" style={{ maxWidth: '500px', margin: '0 auto' }}>
-              <Card.Header className="bg-primary text-white py-3">
-                <h3 className="mb-0 text-center">Current Customer</h3>
+            <Card className="mb-4 shadow-lg border-0" style={{ maxWidth: '600px', margin: '0 auto' }}>
+              <Card.Header className="bg-success text-white py-3">
+                <h3 className="mb-0 text-center">
+                  <i className="bi bi-person-check me-2"></i>
+                  Now Serving
+                </h3>
               </Card.Header>
               <Card.Body className="text-center py-5">
-                <h1 className="fw-bold text-primary mb-3" style={{ fontSize: '6rem' }}>
-                  {currentCustomer.ticketNumber}
-                </h1>
-                <p className="fs-4 mb-0">
-                  <span className="text-muted">Counter:</span>{' '}
-                  <span className="fw-bold">{currentCustomer.counterNumber}</span>
-                </p>
+                <div className="mb-4">
+                  <p className="text-muted mb-2" style={{ fontSize: '1.2rem' }}>Ticket Number</p>
+                  <h1 className="fw-bold text-primary mb-0" style={{ fontSize: '6rem' }}>
+                    {currentCustomer.ticketNumber}
+                  </h1>
+                </div>
+                
+                <div className="mb-3">
+                  <span className="badge bg-primary py-2 px-4" style={{ fontSize: '1.5rem' }}>
+                    Counter {currentCustomer.counterNumber}
+                  </span>
+                </div>
+                
+                <div className="mt-4 p-3 bg-light rounded">
+                  <p className="mb-0 text-muted" style={{ fontSize: '1.2rem' }}>
+                    Service: <strong className="text-dark">{currentCustomer.serviceType}</strong>
+                  </p>
+                </div>
               </Card.Body>
             </Card>
           ) : selectedCounter ? (
-            <Alert variant="info" className="text-center py-5 mb-5" style={{ maxWidth: '900px', margin: '0 auto' }}>
-              <Alert.Heading className="display-6">No customer being served</Alert.Heading>
-              <p className="fs-4 mb-0">
+            <Alert variant="info" className="text-center py-5 mb-5 shadow-sm" style={{ maxWidth: '900px', margin: '0 auto' }}>
+              <Alert.Heading className="display-6">
+                <i className="bi bi-hourglass-split me-2"></i>
+                No customer being served
+              </Alert.Heading>
+              <p className="fs-4 mb-0 mt-3">
                 Click the button below to call the next customer
               </p>
             </Alert>
           ) : (
-            <Alert variant="warning" className="text-center py-5 mb-5" style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <Alert variant="warning" className="text-center py-5 mb-5 shadow-sm" style={{ maxWidth: '900px', margin: '0 auto' }}>
               <Alert.Heading className="display-6">
                 <i className="bi bi-exclamation-triangle me-2"></i>
                 Counter Not Selected
               </Alert.Heading>
-              <p className="fs-4 mb-0">
+              <p className="fs-4 mb-0 mt-3">
                 Please select a counter from the dropdown above to start serving customers
               </p>
             </Alert>
@@ -357,6 +386,7 @@ function OfficerView() {
               {!selectedCounter && (
                 <div className="text-center mt-4">
                   <p className="text-muted fst-italic fs-5">
+                    <i className="bi bi-arrow-up me-2"></i>
                     Select a counter to enable the buttons
                   </p>
                 </div>
@@ -367,30 +397,35 @@ function OfficerView() {
       </Row>
 
       <Modal show={showChangeCounterModal} onHide={cancelChangeCounter} centered size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title className="fs-3">Change Counter</Modal.Title>
+        <Modal.Header closeButton className="border-0">
+          <Modal.Title className="fs-3">
+            <i className="bi bi-arrow-left-right me-2"></i>
+            Change Counter
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body className="py-4">
           {currentCustomer ? (
-            <Alert variant="warning">
+            <Alert variant="warning" className="mb-0">
               <Alert.Heading className="fs-4">
                 <i className="bi bi-exclamation-triangle me-2"></i>
                 Customer in service
               </Alert.Heading>
-              <p className="mb-0 fs-5">
-                You are currently serving customer <strong>{currentCustomer.ticketNumber}</strong>. 
+              <p className="mb-0 fs-5 mt-3">
+                You are currently serving customer <strong>#{currentCustomer.ticketNumber}</strong>. 
                 If you change counter, this customer will be marked as completed. Do you want to continue?
               </p>
             </Alert>
           ) : (
-            <p className="fs-5">Are you sure you want to change counter?</p>
+            <p className="fs-5 mb-0">Are you sure you want to change counter?</p>
           )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" size="lg" onClick={cancelChangeCounter}>
+        <Modal.Footer className="border-0">
+          <Button variant="secondary" size="lg" onClick={cancelChangeCounter} className="px-4">
+            <i className="bi bi-x-circle me-2"></i>
             Cancel
           </Button>
-          <Button variant="primary" size="lg" onClick={confirmChangeCounter}>
+          <Button variant="primary" size="lg" onClick={confirmChangeCounter} className="px-4">
+            <i className="bi bi-check-circle me-2"></i>
             Confirm Change
           </Button>
         </Modal.Footer>

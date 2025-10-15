@@ -3,9 +3,13 @@ import cors from "cors";
 import { sequelize } from "./models/index.mjs";
 import { getAllServiceTypes } from "./dao/service-type-dao.mjs";
 import { getServiceTypesByCounterId } from "./dao/service-type-counter-dao.mjs";
-import { handleNextCustomer } from "./controllers/queueController.mjs";
+//import { handleNextCustomer } from "./controllers/queueController.mjs";
+import seedDatabase from "./seed.mjs";
 import { getTicket } from "./controllers/ticketController.mjs";
+import { getAllCounters } from "./dao/counter-dao.mjs";
 import { getTicketById } from "./dao/ticket-dao.mjs";
+import { handleNextCustomer, getQueueList } from './controllers/queueController.mjs';
+
 
 const app = express();
 
@@ -32,6 +36,24 @@ app.get("/api/service-types", async (req, res) => {
   }
 });
 
+app.get("/api/counters", async (req, res) => {
+  try {
+    const counters = await getAllCounters();
+    
+    // Trasforma i dati per il frontend
+    const formattedCounters = counters.map(counter => ({
+      id: counter.id,
+      counterNumber: counter.number,
+      serviceTypes: counter.serviceTypes || []
+    }));
+    
+    res.json(formattedCounters);
+  } catch (err) {
+    console.error("Error getting counters:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.get("/api/counters/:counterId/service-types", async (req, res) => {
   try {
     const counterId = req.params.counterId;
@@ -44,7 +66,7 @@ app.get("/api/counters/:counterId/service-types", async (req, res) => {
 });
 
 /* get ticket API*/
-app.post("api/tickets", async (req, res) => {
+app.post("/api/tickets", async (req, res) => {
   try {
     await getTicket(req, res);
   } catch (err) {
@@ -53,7 +75,7 @@ app.post("api/tickets", async (req, res) => {
   }
 });
 
-app.get("api/tickets/:id", async (req, res) => {
+app.get("/api/tickets/:id", async (req, res) => {
   try {
     const ticketId = req.params.id;
     const ticket = await getTicketById(ticketId);
@@ -69,10 +91,14 @@ app.get("api/tickets/:id", async (req, res) => {
   }
 });
 
-app.post("/counters/:counterId/next", handleNextCustomer);
+// Route per ottenere la lista della coda
+app.get('/api/queue', getQueueList);
+
+app.post("/api/counters/:counterId/next", handleNextCustomer);
 
 try {
   await sequelize.sync({ force: true });
+  await seedDatabase();
   app.listen(port, () => {
     console.log(`Server listening at http://localhost:${port}`);
   });

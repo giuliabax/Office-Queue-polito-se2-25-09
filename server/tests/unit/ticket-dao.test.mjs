@@ -28,12 +28,12 @@ describe('ticket-dao', () => {
 
   describe('createTicket', () => {
     it('should create a ticket with number and queueId', async () => {
-      const created = { id: 10, number: 5, queueId: 1, status: 'WAITING' };
+      const created = { id: 10, number: "5", queueId: 1, status: 'WAITING' };
       mockTicket.create.mockResolvedValue(created);
 
       const result = await dao.createTicket(5, 1);
 
-      expect(mockTicket.create).toHaveBeenCalledWith({ number: 5, queueId: 1 });
+      expect(mockTicket.create).toHaveBeenCalledWith({ number: "5", queueId: 1 });
       expect(result).toBe(created);
     });
 

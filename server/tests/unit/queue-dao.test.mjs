@@ -114,7 +114,7 @@ describe('queue-dao', () => {
           {
             model: mockTicketModel,
             as: 'tickets',
-            where: { status: 'waiting' },
+            where: { status: 'WAITING' },
             required: false,
           },
           { model: mockServiceTypeModel, as: 'serviceType' },

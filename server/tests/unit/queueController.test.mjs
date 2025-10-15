@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 
+// Mock del servizio
 const mockNextCustomer = jest.fn();
 
 jest.unstable_mockModule('../../services/queueService.js', () => ({
@@ -37,15 +38,16 @@ describe('queueController - handleNextCustomer', () => {
     await handleNextCustomer(req, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ message: 'No customers in queue' });
+    expect(res.json).toHaveBeenCalledWith({ message: 'Queue is empty' });
   });
 
-  it('should return 200 with result when a customer is served', async () => {
+  it('should return the customer served result when a customer is served', async () => {
     const result = { customerServed: true, ticketNumber: 10 };
     mockNextCustomer.mockResolvedValue(result);
 
     await handleNextCustomer(req, res);
 
+    // Il controller non chiama più res.status(200) esplicitamente
     expect(res.json).toHaveBeenCalledWith(result);
   });
 
@@ -58,7 +60,10 @@ describe('queueController - handleNextCustomer', () => {
 
     expect(consoleSpy).toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: 'Internal server error' });
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'Internal server error',
+      message: 'Unexpected'
+    });
 
     consoleSpy.mockRestore();
   });

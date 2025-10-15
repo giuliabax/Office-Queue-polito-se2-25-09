@@ -22,4 +22,4 @@ Queue.associate({ ServiceType, Ticket });
 ServiceType.associate({ Counter, Queue, ServiceTypeCounter });
 Ticket.associate({ Queue , Counter });
 
-export { sequelize, Counter, Officer, Queue, ServiceType, Ticket };
+export { sequelize, Counter, Officer, Queue, ServiceType, Ticket, ServiceTypeCounter };

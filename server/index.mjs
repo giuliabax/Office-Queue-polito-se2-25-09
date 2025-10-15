@@ -121,5 +121,6 @@ try {
     console.log('   PUT  /api/queue/tickets/:ticketId/complete');
   });
 } catch (err) {
-  console.error("❌ Error during database connection/server bootstrap", err);
+  console.error("Error during database connection/server bootstrap", err);
 }
+export { app };

@@ -1,5 +1,4 @@
-
-
+// tests/integration/queueController.int.test.mjs
 import express from "express";
 import request from "supertest";
 import { sequelize, Ticket, Queue, Counter, ServiceType } from "../../models/index.mjs";

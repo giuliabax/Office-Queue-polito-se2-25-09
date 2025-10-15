@@ -123,7 +123,3 @@ describe("Integration Test - handleNextCustomer", () => {
     expect(res.body.message).toBe("Counter not found");
   });
 });
-
-afterAll(async () => {
-  await sequelize.close();
-});

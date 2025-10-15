@@ -10,6 +10,7 @@ const mockTicketInstance = {
   queueId: 2,
   status: "waiting",
   save: jest.fn().mockResolvedValue(true),
+  queue: { serviceType: { name: 'ServiceA' } }
 };
 
 const mockTicket = {
@@ -19,12 +20,11 @@ const mockTicket = {
 
 const mockOfficer = {};
 const mockServiceType = {};
-
+const mockQueue = {};
 
 const mockQueueDao = {
   getQueuesByServiceTypes: jest.fn(),
 };
-
 
 jest.unstable_mockModule("../../models/counter.mjs", () => ({
   Counter: mockCounter,
@@ -34,12 +34,12 @@ jest.unstable_mockModule("../../models/index.mjs", () => ({
   Ticket: mockTicket,
   Officer: mockOfficer,
   ServiceType: mockServiceType,
+  Queue: mockQueue,
 }));
 
 jest.unstable_mockModule("../../dao/queue-dao.mjs", () => ({
   getQueuesByServiceTypes: mockQueueDao.getQueuesByServiceTypes,
 }));
-
 
 const { nextCustomer } = await import("../../services/queueService.js");
 
@@ -58,12 +58,12 @@ describe("queueService - nextCustomer", () => {
     expect(mockCounter.findByPk).toHaveBeenCalledWith(1, expect.any(Object));
   });
 
-  it("should return null if counter has no services", async () => {
+  it("should return object with empty services if counter has no services", async () => {
     mockCounter.findByPk.mockResolvedValue({ serviceTypes: [], officer: { name: "A", surname: "B" } });
 
     const result = await nextCustomer(1);
 
-    expect(result).toBeNull();
+    expect(result).toEqual({ customerServed: null, remainingInQueue: 0, services: [], officer: 'A B', id: undefined });
   });
 
   it("should mark current serving ticket as served", async () => {
@@ -74,14 +74,14 @@ describe("queueService - nextCustomer", () => {
     };
     mockCounter.findByPk.mockResolvedValue(counter);
 
-    const servingTicket = { ...mockTicketInstance, status: "serving", save: jest.fn().mockResolvedValue(true) };
+    const servingTicket = { ...mockTicketInstance, status: "SERVING", save: jest.fn().mockResolvedValue(true) };
     mockTicket.findOne.mockResolvedValueOnce(servingTicket).mockResolvedValueOnce(null); // currentServing, nextTicket
     mockQueueDao.getQueuesByServiceTypes.mockResolvedValue([{ id: 2, serviceType: { name: "ServiceA" } }]);
     mockTicket.count.mockResolvedValue(5);
 
     const result = await nextCustomer(1);
 
-    expect(servingTicket.status).toBe("served");
+    expect(servingTicket.status).toBe("SERVED");
     expect(servingTicket.save).toHaveBeenCalled();
   });
 
@@ -99,7 +99,7 @@ describe("queueService - nextCustomer", () => {
 
     const result = await nextCustomer(1);
 
-    expect(mockTicketInstance.status).toBe("serving");
+    expect(mockTicketInstance.status).toBe("ON_GOING");
     expect(mockTicketInstance.save).toHaveBeenCalled();
     expect(result.customerServed.ticketNumber).toBe(mockTicketInstance.number);
     expect(result.customerServed.serviceType).toBe("ServiceA");

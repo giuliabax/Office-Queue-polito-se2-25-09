@@ -74,7 +74,8 @@ describe('TicketController - getTicket', () => {
 
       // Assert
       expect(mockQueueDAO.getQueueByServiceTypeId).toHaveBeenCalledWith(1);
-      expect(mockTicketDAO.createTicket).toHaveBeenCalledWith(6, 1);
+      // Allow optional third argument (acronym)
+      expect(mockTicketDAO.createTicket).toHaveBeenCalledWith(6, 1, 'PADE');
       expect(mockQueue.save).toHaveBeenCalled();
       expect(mockQueue.lastIssuedTicketNumber).toBe(6);
       expect(mockServiceTypeDAO.getServiceTypeById).toHaveBeenCalledWith(1);
@@ -116,7 +117,7 @@ describe('TicketController - getTicket', () => {
       await getTicket(mockReq, mockRes);
 
       // Assert
-      expect(mockTicketDAO.createTicket).toHaveBeenCalledWith(1, 2);
+      expect(mockTicketDAO.createTicket).toHaveBeenCalledWith(1, 2, 'DOCS');
       expect(mockQueue.lastIssuedTicketNumber).toBe(1);
       expect(mockRes.json).toHaveBeenCalledWith({
         ticketNumber: 1,
@@ -329,7 +330,7 @@ describe('TicketController - getTicket', () => {
       await getTicket(mockReq, mockRes);
 
       // Assert - verify QueueInfo.getNextTicketNumber logic (lastIssuedTicketNumber + 1)
-      expect(mockTicketDAO.createTicket).toHaveBeenCalledWith(100, 3);
+      expect(mockTicketDAO.createTicket).toHaveBeenCalledWith(100, 3, 'EMER');
       expect(mockQueue.lastIssuedTicketNumber).toBe(100);
     });
 

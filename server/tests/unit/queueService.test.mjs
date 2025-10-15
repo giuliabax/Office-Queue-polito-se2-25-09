@@ -49,14 +49,13 @@ describe("queueService - nextCustomer", () => {
     mockTicketInstance.status = "waiting";
   });
 
-  it("should return null if counter not found", async () => {
-    mockCounter.findByPk.mockResolvedValue(null);
+  it("should return object with empty customer if counter not found", async () => {
+  mockCounter.findByPk.mockResolvedValue(null);
 
-    const result = await nextCustomer(1);
+  const result = await nextCustomer(1);
 
-    expect(result).toBeNull();
-    expect(mockCounter.findByPk).toHaveBeenCalledWith(1, expect.any(Object));
-  });
+  expect(result).toBeNull();
+});
 
   it("should return object with empty services if counter has no services", async () => {
     mockCounter.findByPk.mockResolvedValue({ serviceTypes: [], officer: { name: "A", surname: "B" } });

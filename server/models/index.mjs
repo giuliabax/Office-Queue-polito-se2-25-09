@@ -16,10 +16,10 @@ initServiceType(sequelize);
 initServiceTypeCounter(sequelize);
 initTicket(sequelize);
 
-Counter.associate({ ServiceType, ServiceTypeCounter, Officer });
+Counter.associate({ ServiceType, ServiceTypeCounter, Officer, Ticket });
 Officer.associate({ Counter });
 Queue.associate({ ServiceType, Ticket });
 ServiceType.associate({ Counter, Queue, ServiceTypeCounter });
-Ticket.associate({ Queue });
+Ticket.associate({ Queue , Counter });
 
-export { sequelize, Counter, Officer, Queue, ServiceType, Ticket };
+export { sequelize, Counter, Officer, Queue, ServiceType, Ticket, ServiceTypeCounter };

@@ -1,4 +1,5 @@
 import { Queue } from "../models/queue.mjs";
+import { ServiceType, Ticket } from "../models/index.mjs";
 
 /* The method allows to create a new queue related to a specific service type*/
 export async function createQueue(serviceTypeId) {
@@ -21,4 +22,25 @@ export async function getLastIssuedTicketNumberByQueueId(queueId) {
 export async function getLastIssuedTicketNumberByServiceTypeId(serviceTypeId) {
   const queue = await Queue.findOne({ where: { serviceTypeId } });
   return queue.lastIssuedTicketNumber;
+}
+
+export async function getQueueByServiceTypeId(serviceTypeId) {
+  return await Queue.findOne({ where: { serviceTypeId } });
+}
+/* Retrieve all queues that handle the given service types, including their waiting tickets and
+   related service type details.
+*/
+export async function getQueuesByServiceTypes(serviceTypeIds) {
+  return await Queue.findAll({
+    where: { serviceTypeId: serviceTypeIds },
+    include: [
+      {
+        model: Ticket,
+        as: "tickets",
+        where: { status: "WAITING" },
+        required: false,
+      },
+      { model: ServiceType, as: "serviceType" },
+    ],
+  });
 }

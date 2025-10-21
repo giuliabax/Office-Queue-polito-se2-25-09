@@ -1,5 +1,6 @@
 import { ServiceTypeCounter } from "../models/service-type-counter.mjs";
 import { sequelize } from "../models/index.mjs";
+
 export async function addServiceTypeToCounter(serviceTypeId, counterId) {
   return await ServiceTypeCounter.create({ serviceTypeId, counterId });
 }
@@ -10,10 +11,10 @@ export async function getServiceTypesByCounterId(counterId) {
   const serviceTypes = await sequelize.query(
     `SELECT st.*
      FROM "service-types" st
-     JOIN "service-type-counters" stc ON st.id = stc.serviceTypeId
+     JOIN "service_type_counter" stc ON st.id = stc.serviceTypeId
      WHERE stc.counterId = :counterId`,
     {
-      replacements: [counterId],
+      replacements: { counterId },
       type: sequelize.QueryTypes.SELECT,
     }
   );

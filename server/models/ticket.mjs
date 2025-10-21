@@ -6,6 +6,10 @@ export class Ticket extends Model {
       foreignKey: "queueId",
       as: "queue",
     });
+    Ticket.belongsTo(models.Counter, {
+      foreignKey: "counterId",
+      as: "counter",
+    });
   }
 }
 
@@ -13,13 +17,14 @@ export function initTicket(sequelize) {
   Ticket.init(
     {
       id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-      number: { type: DataTypes.INTEGER, allowNull: false },
+      number: { type: DataTypes.TEXT, allowNull: false },
       status: {
         type: DataTypes.ENUM("ON_GOING", "WAITING", "SERVED"),
-        allowNull: true,
+        allowNull: false,
         defaultValue: "WAITING",
       },
       queueId: { type: DataTypes.INTEGER, allowNull: false },
+      counterId: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null },
     },
     {
       sequelize,
@@ -28,4 +33,5 @@ export function initTicket(sequelize) {
       timestamps: false,
     }
   );
+  return Ticket;
 }

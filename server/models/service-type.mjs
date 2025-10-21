@@ -3,7 +3,7 @@ import { DataTypes, Model } from "sequelize";
 export class ServiceType extends Model {
   static associate(models) {
     ServiceType.belongsToMany(models.Counter, {
-      through: models.ServiceTypeCounter,
+      through: "service_type_counter",
       foreignKey: "serviceTypeId",
       otherKey: "counterId",
       as: "counters",
@@ -26,7 +26,7 @@ export function initServiceType(sequelize) {
       sequelize,
       modelName: "ServiceType",
       tableName: "service-types",
-      timestamps: false,
+      timestamps: true,
     }
   );
 }
